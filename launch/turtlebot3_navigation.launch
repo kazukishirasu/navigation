@@ -1,0 +1,77 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="world_name" default="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"/>
+  <arg name="x_pos" default="0.0"/>
+  <arg name="y_pos" default="0.0"/>
+  <arg name="z_pos" default="0.0"/>
+  <arg name="yaw_pos" default="0.0"/>
+  <arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+  <arg name="map_file" default="$(find turtlebot3_navigation)/maps/map.yaml"/>
+  <arg name="config_file" default="$(find waypoint_server)/config/waypoint_server.yaml"/>
+  <!-- <arg name="filename" default="$(find waypoint_nav)/config/sample.yaml"/> -->
+  <arg name="dist_err" default="1.0"/>
+  <arg name="loop_flg" default="false"/>
+  <arg name="open_rviz" default="true"/>
+  <arg name="move_forward_only" default="false"/>
+  <arg name="weights_path" default="$(find yolov5_pytorch_ros)/weights/0826_detect_landmark.pt"/>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(arg world_name)"/>
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="false"/>
+    <arg name="headless" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf"  args="-urdf -model turtlebot3_$(arg model) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -Y $(arg yaw_pos) -param robot_description" />
+
+  <!-- Turtlebot3 -->
+  <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
+    <arg name="model" value="$(arg model)" />
+  </include>
+
+  <!-- Map server -->
+  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
+
+  <!-- AMCL -->
+  <!-- <include file="$(find turtlebot3_navigation)/launch/amcl.launch"/> -->
+
+  <!-- EMCL -->
+  <include file="$(find emcl)/launch/emcl.launch">
+    <arg name="initial_pose_x" value="$(arg initial_pose_x)" />
+    <arg name="initial_pose_y" value="$(arg initial_pose_y)" />
+    <arg name="initial_pose_a" value="$(arg initial_pose_a)" />
+  </include>
+
+  <!-- move_base -->
+  <include file="$(find turtlebot3_navigation)/launch/move_base.launch">
+    <arg name="model" value="$(arg model)" />
+    <arg name="move_forward_only" value="$(arg move_forward_only)"/>
+  </include>
+
+  <!--waypoint-->
+    <include file="$(find waypoint_server)/launch/waypoint_server.launch">
+    <arg name="config_file" value="$(arg config_file)"/>
+  </include>
+
+  <include file="$(find theta_simple_stitching)/launch/simple_stitching.launch"/>
+  <include file="$(find yolov5_pytorch_ros)/launch/landmark_detector.launch">
+    <arg name="weights_path" value="$(arg weights_path)"/>
+  </include>
+
+  <!--include file="$(find yolov5_pytorch_ros)/launch/detector.launch">
+    <arg name="weights_path" value="$(arg weights_path)"/>
+  </include-->
+  
+  <!-- rviz -->
+  <group if="$(arg open_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz" required="true"
+          args="-d $(find navigation)/rviz/turtlebot3_navigation.rviz"/>
+  </group>
+</launch>
